@@ -156,6 +156,7 @@ impl AddressSpaceRegion {
     /// * `mem_prealloc` - Whether to enable pre-allocation of guest memory
     /// * `is_hotplug` - Whether it's a region for hotplug.
     /// * `prot_flags` - mmap protection flags
+    /// Xuewei: shmem 使用 memfd_create() 创建了一个长度为 size 的共享内存
     pub fn create_memory_region(
         base: GuestAddress,
         size: GuestUsize,
@@ -171,10 +172,12 @@ impl AddressSpaceRegion {
         } else {
             libc::MAP_SHARED
         };
+        // Xuewei: shmem => MemorySourceType::MemFdShared
         let source_type = MemorySourceType::from_str(mem_type)
             .map_err(|_e| AddressSpaceError::InvalidMemorySourceType(mem_type.to_string()))?;
         let mut reg = match source_type {
             MemorySourceType::MemFdShared | MemorySourceType::MemFdOnHugeTlbFs => {
+                // Xuewei: shmem
                 let fn_str = if source_type == MemFdShared {
                     CString::new("shmem").expect("CString::new('shmem') failed")
                 } else {

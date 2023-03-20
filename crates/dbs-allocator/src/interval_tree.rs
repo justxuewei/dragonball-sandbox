@@ -152,9 +152,12 @@ impl Range {
         match align {
             0 | 1 => Some(*self),
             _ => {
+                // Xuewei: 如果 align 不是 2 的幂次方，则不考虑（如上个例子的
+                // a.align_to(3)）
                 if align & (align - 1) != 0 {
                     return None;
                 }
+                // Xuewei: 将 min 的值向上舍入到最接近的 align 的倍数
                 if let Some(min) = self.min.checked_add(align - 1).map(|v| v & !(align - 1)) {
                     if min <= self.max {
                         return Some(Range::new(min, self.max));
@@ -364,6 +367,8 @@ impl<T> Node<T> {
     }
 
     /// Update an existing entry and return the old value.
+    /// Xuewei: 这里做了一些更新限制，但总体来说是将老的 node state 替换为 data
+    /// 的 node state
     fn update(&mut self, key: &Range, data: NodeState<T>) -> Option<T> {
         match self.0.key.cmp(key) {
             Ordering::Equal => {
@@ -516,6 +521,7 @@ impl<T> Node<T> {
         }
     }
 
+    // Xuewei: 二叉树先序遍历查找一个合适的 node 能够包含 Constraint
     fn first_match(&self, constraint: &Constraint) -> Option<&Self> {
         let mut candidate = if self.0.left.is_some() {
             self.0.left.as_ref().unwrap().first_match(constraint)
@@ -532,12 +538,20 @@ impl<T> Node<T> {
         candidate
     }
 
+    // Xuewei: 这个方法检查 Constraint 的区间是否包在 node 的区间，在计算的时候
+    // 也会同时考虑 align。
+    // Question: 如果一个 Constraint 横跨了两个空间怎么办？我觉得应该是在内存回收之后，
     fn check_constraint(&self, constraint: &Constraint) -> bool {
+        // Xuewei: 这个节点的状态必须是 Free
         if self.0.data.is_free() {
+            // Xuewei: min 是 node.min 和 constraint.min 中大的那一个
             let min = std::cmp::max(self.0.key.min, constraint.min);
+            // Xuewei: max 是 node.max 和 constraint.max 中小的那一个
             let max = std::cmp::min(self.0.key.max, constraint.max);
+            // Xuewei: 这个比较的意思是 node 包含了 constraint
             if min <= max {
                 let key = Range::new(min, max);
+                // Xuewei: 目前还不是很清楚 align == 0 / align == 1 的作用是什么
                 if constraint.align == 0 || constraint.align == 1 {
                     return key.len() >= constraint.size;
                 }
@@ -561,6 +575,7 @@ impl<T> Node<T> {
     }
 
     /// Update the sub-tree to keep balance.
+    /// Xuewei: update_cached_info 更新节点 max，rotate 让这棵树变得平衡（平衡二叉树）
     fn updated_node(mut self) -> Self {
         self.update_cached_info();
         self.rotate()
@@ -775,6 +790,8 @@ impl<T> IntervalTree<T> {
     ///     Some(NodeState::Free)
     /// );
     /// ```
+    /// Xuewei: 向 interval tree 中插入一个 node，要注意这些节点的范围是不能重合
+    /// 的，否则会 panic。
     pub fn insert(&mut self, key: Range, data: Option<T>) {
         match self.root.take() {
             None => self.root = Some(Node::new(key, data)),
@@ -850,10 +867,14 @@ impl<T> IntervalTree<T> {
     /// assert_eq!(key, Some(Range::new(0x200u64, 0x201u64)));
     /// tree.update(&Range::new(0x200u64, 0x201u64), 2);
     /// ```
+    /// Xuewei: 从 interval tree 中申请一段区间，申请的信息保存在 Constraint
+    /// 中，在这个函数中会做一系列的检查、对齐等操作，在确保一切都正确的情况下会
+    /// 更新 interval tree 的 node，并返回这个新的区间。
     pub fn allocate(&mut self, constraint: &Constraint) -> Option<Range> {
         if constraint.size == 0 {
             return None;
         }
+        // Xuewei: 递归搜索 candidate
         let candidate = match self.root.as_mut() {
             None => None,
             Some(node) => node.find_candidate(constraint),
@@ -871,7 +892,10 @@ impl<T> IntervalTree<T> {
                 let aligned_key = range.align_to(constraint.align).unwrap();
                 let result = Range::new(aligned_key.min, aligned_key.min + constraint.size - 1);
 
-                // Allocate a resource from the node, no need to split the candidate node.
+                // Allocate a resource from the node, no need to split the
+                // candidate node.
+                // Xuewei: 申请的长度与 node 的长度正好吻合，直接将当前 node 状
+                // 态更新为 Allocated
                 if node_key.min == aligned_key.min && node_key.len() == constraint.size {
                     self.root
                         .as_mut()
@@ -881,7 +905,10 @@ impl<T> IntervalTree<T> {
                 }
 
                 // Split the candidate node.
-                // TODO: following algorithm is not optimal in preference of simplicity.
+                // TODO: following algorithm is not optimal in preference of
+                // simplicity.
+                // Xuewei: 先删掉原来的 node，然后将 node 分为三段分别插入，最后
+                // 更新 node state
                 self.delete(&node_key);
                 if aligned_key.min > node_key.min {
                     self.insert(Range::new(node_key.min, aligned_key.min - 1), None);
