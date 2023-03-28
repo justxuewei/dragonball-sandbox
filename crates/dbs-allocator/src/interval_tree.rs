@@ -368,7 +368,8 @@ impl<T> Node<T> {
 
     /// Update an existing entry and return the old value.
     /// Xuewei: 这里做了一些更新限制，但总体来说是将老的 node state 替换为 data
-    /// 的 node state
+    /// 的 node state。
+    /// 这里查找的是 Range::min，因此不存在分割 range 的问题。
     fn update(&mut self, key: &Range, data: NodeState<T>) -> Option<T> {
         match self.0.key.cmp(key) {
             Ordering::Equal => {
