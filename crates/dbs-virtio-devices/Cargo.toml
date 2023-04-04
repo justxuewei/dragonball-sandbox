@@ -41,6 +41,7 @@ vm-memory = { version = "0.9.0", features = [ "backend-mmap" ] }
 vm-memory = { version = "0.9.0", features = [ "backend-mmap", "backend-atomic" ] }
 
 [features]
+default = ["virtio-net"]
 virtio-mmio = []
 virtio-vsock = ["virtio-mmio"]
 virtio-net = ["virtio-mmio"]

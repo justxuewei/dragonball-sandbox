@@ -152,6 +152,7 @@ fn vnet_hdr_len() -> usize {
     mem::size_of::<virtio_net_hdr_v1>()
 }
 
+// Xuewei: 这个函数实现了一个 MutEventSubscriber 的 trait，因此是一个可订阅类型。 
 #[allow(dead_code)]
 pub(crate) struct NetEpollHandler<
     AS: GuestAddressSpace,
@@ -574,26 +575,31 @@ impl<AS: DbsGuestAddressSpace, Q: QueueT + Send, R: GuestMemoryRegion> MutEventS
         }
     }
 
+    // Xuewei: 这里是 subscribe 和 eventfd 绑定的关键函数
     fn init(&mut self, ops: &mut EventOps) {
         trace!(target: "virtio-net", "{}: NetEpollHandler::init()", self.id);
 
+        // Xuewei: 监听 tap 设备的信息，data 是 RX_TAP_EVENT
         let events = Events::with_data(&self.tap, RX_TAP_EVENT, EventSet::IN);
         if let Err(e) = ops.add(events) {
             error!("{}: failed to register TAP RX event, {:?}", self.id, e);
         }
 
+        // Xuewei: 监听接收队列的 eventfd，data 是 RX_QUEUE_EVENT
         let events =
             Events::with_data(self.rx.queue.eventfd.as_ref(), RX_QUEUE_EVENT, EventSet::IN);
         if let Err(e) = ops.add(events) {
             error!("{}: failed to register RX queue event, {:?}", self.id, e);
         }
 
+        // Xuewei: 监听发送队列的 eventfd，data 是 TX_QUEUE_EVENT
         let events =
             Events::with_data(self.tx.queue.eventfd.as_ref(), TX_QUEUE_EVENT, EventSet::IN);
         if let Err(e) = ops.add(events) {
             error!("{}: failed to register TX queue event, {:?}", self.id, e);
         }
 
+        // Xuewei: 监听接收限速的 eventfd，data 是 RX_RATE_LIMITER_EVENT
         let rx_rate_limiter_fd = self.rx.rate_limiter.as_raw_fd();
         if rx_rate_limiter_fd >= 0 {
             let events =
@@ -606,6 +612,7 @@ impl<AS: DbsGuestAddressSpace, Q: QueueT + Send, R: GuestMemoryRegion> MutEventS
             }
         }
 
+        // Xuewei: 监听发送限速的 eventfd，data 是 RX_RATE_LIMITER_EVENT
         let tx_rate_limiter_fd = self.tx.rate_limiter.as_raw_fd();
         if tx_rate_limiter_fd >= 0 {
             let events =

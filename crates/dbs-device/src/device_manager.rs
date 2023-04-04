@@ -162,6 +162,9 @@ impl PartialOrd for IoRange {
 /// with trapped address ranges. When guest vm accesses those trapped MMIO/PIO address ranges,
 /// VM IO Exit events will be triggered and the VMM dispatches those events to IO manager.
 /// And then the registered callbacks will invoked by IO manager.
+/// Xuewei: IoManager 似乎管理着所有 io 设备，众所周知，虚拟机的 io 访问方式有
+/// pio 和 mmio 两种，因此这个结构体中也是包含了两个方式的总线映射。通过 IoRange
+/// 就能获得设备信息（DeviceIo）。
 #[derive(Clone, Default)]
 pub struct IoManager {
     /// Range mapping for VM exit pio operations.

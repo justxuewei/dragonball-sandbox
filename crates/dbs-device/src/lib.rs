@@ -179,6 +179,7 @@ impl From<PioAddress> for IoAddress {
 /// The [DeviceIo] trait adopts the interior mutability pattern so we can get a real concurrent
 /// multiple threads handling. For device backend drivers not focusing on high performance,
 /// the Mutex<T: DeviceIoMut> adapter may be used to simplify the implementation.
+/// Xuewei: 这个结构体代表一个设备？（I guess）
 #[allow(unused_variables)]
 pub trait DeviceIo: Send + Sync {
     /// Read from the MMIO address `base + offset` into `data`.

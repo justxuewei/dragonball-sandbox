@@ -167,6 +167,8 @@ pub enum MsiIrqType {
 }
 
 /// Enumeration for device resources.
+/// Xuewei: 包在了 DeviceResource 里，所以我这里暂时推测 Resource 表示的是一个设
+/// 备持有的资源。
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Resource {
     /// IO Port resource range.
